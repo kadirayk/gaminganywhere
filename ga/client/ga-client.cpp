@@ -53,7 +53,15 @@ extern "C" {
 #include "ga-avcodec.h"
 #include "vconverter.h"
 
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/filereadstream.h"
+#include <iostream>
+#include <fstream>
+
 #include <map>
+using namespace rapidjson;
 using namespace std;
 
 #define	POOLSIZE	16
@@ -62,6 +70,8 @@ using namespace std;
 #define	IDLE_DETECTION_THRESHOLD	 600000 /* us */
 
 #define	WINDOW_TITLE		"Player Channel #%d (%dx%d)"
+
+#define REPLAY_EVENT_CODE 111
 
 pthread_mutex_t watchdogMutex;
 struct timeval watchdogTimer = {0LL, 0LL};
@@ -419,8 +429,140 @@ render_image(struct RTSPThreadParam *rtspParam, int ch) {
 }
 #endif
 
+
+struct KeyPress {
+	string value;
+	Uint32 timestamp;
+	string type;
+};
+
+std::vector<KeyPress> keySequence;
+
+std::vector<SDL_Event> eventArray;
+
+vector<KeyPress> replaySequence;
+
+void SerializeEventsToFile(vector<KeyPress> *keySequence, string fileName) {
+	StringBuffer s;
+	Writer<StringBuffer> writer(s);
+	writer.StartArray();
+	for (std::vector<KeyPress>::iterator it = keySequence->begin(); it != keySequence->end(); ++it) {
+		writer.StartObject();
+		writer.Key("value");
+		writer.String(it->value.data());
+		writer.Key("type");
+		writer.String(it->type.data());
+		writer.Key("timestamp");
+		writer.Uint(it->timestamp);
+		writer.EndObject();
+	}
+	writer.EndArray();
+
+	ofstream file;
+	file.open(fileName);
+	file << s.GetString();
+	file.close();
+}
+
+
+std::vector<KeyPress> ReadReplaySequenceFromFile(string filename) {
+	std::vector<KeyPress> eventsFromFile;
+	using namespace rapidjson;
+	FILE* fp = fopen(filename.c_str(), "rb");
+	char readBuffer[65536];
+	FileReadStream is(fp, readBuffer, sizeof(readBuffer));
+	Document d;
+	d.ParseStream(is);
+	rapidjson::Value::Array values = d.GetArray();
+	for (rapidjson::Value::ConstValueIterator itr = values.Begin(); itr != values.End(); ++itr) {
+		const Value& metadata = (*itr);
+		KeyPress kp = {};
+		for (Value::ConstMemberIterator itrObj = metadata.MemberBegin();
+			itrObj != metadata.MemberEnd(); ++itrObj) {
+			if (itrObj->value.IsString() && itrObj->name == "value") {
+				string val = itrObj->value.GetString();
+				kp.value = val;
+			}
+			else if (itrObj->value.IsString() && itrObj->name == "type") {
+				string type = itrObj->value.GetString();
+				kp.type = type;
+			}
+			else if (itrObj->value.IsInt()) {
+				int time = itrObj->value.GetInt();
+				kp.timestamp = time;
+			}
+		}
+		eventsFromFile.push_back(kp);
+	}
+
+	for (vector<KeyPress>::iterator it = eventsFromFile.begin(); it != eventsFromFile.end(); ++it) {
+		cout << "val:" << it->value << " " << it->type << " time:" << it->timestamp;
+	}
+
+	fclose(fp);
+	return eventsFromFile;
+}
+
+
+void AddToKeySequence(SDL_Event *event) {
+	Uint32 timestamp = event->key.timestamp;
+	string key = SDL_GetKeyName(event->key.keysym.sym);
+	string type = "UP";
+	if (event->key.type == SDL_KEYDOWN) {
+		type = "DOWN";
+	}
+	KeyPress kp = { key, timestamp, type };
+	keySequence.push_back(kp);
+	SerializeEventsToFile(&keySequence, "keyPress.json");
+}
+
+
+bool isReplay = false;
+//pthread_mutex_t lock;
+
+
+Uint32 CalculateKeyDelay(KeyPress *currentKey, KeyPress *nextKey) {
+	Uint32 currentTimeStamp = currentKey->timestamp;
+	Uint32 nextTimeStamp = nextKey->timestamp;
+	cout << "current time:" << currentTimeStamp << " next time:" << nextTimeStamp;
+	return nextTimeStamp - currentTimeStamp;
+}
+
+void *replayEvents(void *ptr) {
+	//pthread_mutex_lock(&lock);
+	isReplay = false;
+	//pthread_mutex_unlock(&lock);
+	keySequence.clear(); // clear keys stored until replay
+	std::vector<KeyPress> keysFromFile = ReadReplaySequenceFromFile("keyPress.json");
+	for (vector<KeyPress>::iterator it = keysFromFile.begin(); it != keysFromFile.end(); ++it) {
+		SDL_Event event = {};
+		event.user.code = REPLAY_EVENT_CODE;
+		if (it->type == "UP") {
+			event.type = SDL_KEYUP;
+		}
+		else {
+			event.type = SDL_KEYDOWN;
+		}
+		event.key.keysym.sym = SDL_GetKeyFromName(it->value.data());
+		event.key.timestamp = it->timestamp;
+		Uint32 delay = 0;
+		if (it + 1 < keysFromFile.end()) {
+			int nextEventIndex = (it - keysFromFile.begin()) + 1;
+			KeyPress nextKey = keysFromFile[nextEventIndex];
+			delay = CalculateKeyDelay(&*it, &nextKey);
+		}
+		SDL_PushEvent(&event);
+		Sleep(delay);
+	}
+	return NULL;
+}
+
 void
 ProcessEvent(SDL_Event *event) {
+	if (isReplay) {
+		pthread_t replayThread;
+		pthread_create(&replayThread, NULL, replayEvents, NULL);
+	}
 	sdlmsg_t m;
 	map<unsigned int,int>::iterator mi;
 	int ch;
@@ -428,6 +570,12 @@ ProcessEvent(SDL_Event *event) {
 	//
 	switch(event->type) {
 	case SDL_KEYUP:
+		if (event->key.keysym.sym != SDLK_F6) {
+			if (!isReplay && event->user.code != REPLAY_EVENT_CODE) {
+				eventArray.push_back(*event);
+				AddToKeySequence(event);
+			}
+		}
 		if(event->key.keysym.sym == SDLK_BACKQUOTE
 		&& relativeMouseMode != 0) {
 			showCursor = 1 - showCursor;
@@ -464,6 +612,19 @@ ProcessEvent(SDL_Event *event) {
 		}
 		break;
 	case SDL_KEYDOWN:
+		if (event->key.keysym.sym == SDLK_F6) {
+			isReplay = true;
+			return;
+		}
+		else {
+			if (!isReplay && event->user.code != REPLAY_EVENT_CODE) {
+				eventArray.push_back(*event);
+				AddToKeySequence(event);
+			}
+			else if (event->user.code != REPLAY_EVENT_CODE) {
+				cout << "down key: " << SDL_GetKeyName(event->key.keysym.sym) << " downtime:" << event->key.timestamp;
+			}
+		}
 		// switch between fullscreen?
 		if((event->key.keysym.sym == SDLK_RETURN)
 		&& (event->key.keysym.mod & KMOD_ALT)) {

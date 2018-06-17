@@ -36,7 +36,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <SourcePath>C:\Users\Kadiray\work_ga\cygfork\gaminganywhere-0.8.0\deps.win32\include;C:\Users\Kadiray\work_ga\cygfork\gaminganywhere-0.8.0\ga\core;$(SourcePath)</SourcePath>
+    <IncludePath>C:\Users\Kadiray\work_ga\cygfork\gaminganywhere\deps.win32\include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level2</WarningLevel>
