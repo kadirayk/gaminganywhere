@@ -536,6 +536,8 @@ size_check:
 	//
 	q->tail += pkt->size;
 	q->datasize += pkt->size;
+
+	// prsc packet pushed to the encoder_packet_t list
 	pktlist[channelId].push_back(qp);
 	//
 	if(q->tail == q->bufsize)

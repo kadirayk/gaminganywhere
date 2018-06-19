@@ -96,6 +96,26 @@ static map<int,int> sdl_keymap;
 static map<int,unsigned short> sdl_unicodemap;
 static map<unsigned short,unsigned short> sdl_shiftmap;
 
+struct Command {
+	string commandName;
+	Uint32 commandId;
+	bool hasResponse;
+	dpipe_buffer_t *data;
+};
+
+static vector<Command> commandList;
+
+void attach_response(dpipe_buffer_t *data) {
+	for (std::vector<Command>::size_type i = 0; i != commandList.size(); i++) {
+		Command *cmd = &commandList.at(i);
+		if (!cmd->hasResponse) {
+			cmd->data = data;
+			cmd->hasResponse = TRUE;
+			data->commandId = cmd->commandId;
+		}
+	}
+}
+
 int
 sdl_hook_init() {
 	static int initialized = 0;
@@ -631,7 +651,11 @@ sdl12_hook_replay(sdlmsg_t *msg) {
 			break;
 		sdl12evt.key.type =
 			msgk->is_pressed ? SDL12_KEYDOWN : SDL12_KEYUP;
-		sdl12evt.key.which = 0;
+		
+		// for prsc commandId
+		// sdl12evt.key.which = 0;
+		sdl12evt.key.which = msgk->which;
+		
 		sdl12evt.key.state =
 			msgk->is_pressed ? SDL_PRESSED : SDL_RELEASED;
 		sdl12evt.key.keysym.scancode = msgk->scancode/*0*/;
@@ -725,6 +749,10 @@ sdl12_hook_replay(sdlmsg_t *msg) {
 		//ga_error("XXX: PushEvent: x=%d*%.2f, y=%dx%.2f\n", msg->mousex, scaleX, msg->mousey, scaleY);
 		break;
 	}
+	// prsc keep list of commands
+	string key = "asd";
+	Command cmd = { key, msgk->which };
+	commandList.push_back(cmd);
 	return;
 }
 
@@ -1026,6 +1054,8 @@ hook_SDL_GL_SwapBuffers() {
 	ga_hook_capture_dupframe(frame);
 	dpipe_store(g_pipe[0], data);
 	
+	//prsc attach game response to command
+	attach_response(data);
 	return;
 }
 
