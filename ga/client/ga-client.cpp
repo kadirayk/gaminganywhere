@@ -799,6 +799,8 @@ ProcessEvent(SDL_Event *event) {
 	return;
 }
 
+boolean checkTimeout = false;
+
 static void *
 watchdog_thread(void *args) {
 	static char idlemsg[128];
@@ -818,26 +820,30 @@ watchdog_thread(void *args) {
 		if(watchdogTimer.tv_sec != 0) {
 			long long d;
 			d = tvdiff_us(&tv, &watchdogTimer);
-			if(d > IDLE_MAXIMUM_THRESHOLD) {
-				rtspThreadParam.running = false;
-				break;
-			} else if(d > IDLE_DETECTION_THRESHOLD) {
-				// update message and show
-				snprintf(idlemsg, sizeof(idlemsg),
-					"Audio/video stall detected, waiting for %d second(s) to terminate ...",
-					(int) (IDLE_MAXIMUM_THRESHOLD - d) / 1000000);
-				//
-				bzero(&evt, sizeof(evt));
-				evt.user.type = SDL_USEREVENT;
-				evt.user.timestamp = time(0);
-				evt.user.code = SDL_USEREVENT_RENDER_TEXT;
-				evt.user.data1 = idlemsg;
-				evt.user.data2 = NULL;
-				SDL_PushEvent(&evt);
-				//
-				rtsperror("watchdog: %s\n", idlemsg);
-			} else {
-				// do nothing
+			if (checkTimeout) {
+				if (d > IDLE_MAXIMUM_THRESHOLD) {
+					rtspThreadParam.running = false;
+					break;
+				}
+				else if (d > IDLE_DETECTION_THRESHOLD) {
+					// update message and show
+					snprintf(idlemsg, sizeof(idlemsg),
+						"Audio/video stall detected, waiting for %d second(s) to terminate ...",
+						(int)(IDLE_MAXIMUM_THRESHOLD - d) / 1000000);
+					//
+					bzero(&evt, sizeof(evt));
+					evt.user.type = SDL_USEREVENT;
+					evt.user.timestamp = time(0);
+					evt.user.code = SDL_USEREVENT_RENDER_TEXT;
+					evt.user.data1 = idlemsg;
+					evt.user.data2 = NULL;
+					SDL_PushEvent(&evt);
+					//
+					rtsperror("watchdog: %s\n", idlemsg);
+				}
+				else {
+					// do nothing
+				}
 			}
 		} else {
 			rtsperror("watchdog: initialized, but no frames received ...\n");
