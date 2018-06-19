@@ -145,6 +145,9 @@ sdlmsg_ntoh(sdlmsg_t *msg) {
 	return msg;
 }
 
+
+int commandIdCounter = 10000;
+
 sdlmsg_t *
 sdlmsg_keyboard(sdlmsg_t *msg, unsigned char pressed, unsigned short scancode, SDL_Keycode key, unsigned short mod, unsigned int unicode)
 {
@@ -160,6 +163,8 @@ sdlmsg_keyboard(sdlmsg_t *msg, unsigned char pressed, unsigned short scancode, S
 	msgk->unicode = htonl(unicode);
 #endif
 	msgk->sdlmod = htons(mod);
+	// prsc attach commandId to messages
+	msgk->which = commandIdCounter++;
 	return msg;
 }
 
