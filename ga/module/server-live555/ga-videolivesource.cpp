@@ -174,9 +174,10 @@ void GAVideoLiveSource
 	// prsc here we decrease the pointer value to attach commandId to the head of the buffer
 	// and increase the frame size
 	if (pkt.commandId!=NULL && pkt.commandId>0 && pkt.commandId<=200) {
-		newFrameDataStart--;
-		newFrameDataStart[0] = pkt.commandId;
-		newFrameSize++;
+		newFrameDataStart -= 2;
+		newFrameDataStart[0] = 153;
+		newFrameDataStart[1] = pkt.commandId;
+		newFrameSize += 2;
 	}
 	//newFrameDataStart++;
 	//newFrameDataStart = appendCharToCharArray(newFrameDataStart, pkt.commandId);

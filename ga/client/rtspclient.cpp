@@ -1011,25 +1011,25 @@ adb_failed:
 
 unsigned char getCommandId(unsigned char *buffer) {
 	unsigned char id = 0;
-	if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 1) {
-		id = buffer[4];
-		buffer[4] = buffer[3];
-		buffer[3] = buffer[2];
-		buffer[2] = buffer[1];
-		buffer[1] = buffer[0];
+	if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 1 && buffer[4]==153) {
+		id = buffer[5];
+		buffer[5] = buffer[3];
+		buffer[4] = buffer[2];
+		buffer[3] = buffer[1];
+		buffer[2] = buffer[0];
 	}
-	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 1) {
-		id = buffer[3];
-		buffer[3] = buffer[2];
-		buffer[2] = buffer[1];
-		buffer[1] = buffer[0];
-	}
-	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0) {
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 1 && buffer[3] == 153) {
 		id = buffer[4];
-		buffer[4] = buffer[3];
-		buffer[3] = buffer[2];
-		buffer[2] = buffer[1];
-		buffer[1] = buffer[0];
+		buffer[4] = buffer[2];
+		buffer[3] = buffer[1];
+		buffer[2] = buffer[0];
+	}
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0 && buffer[4] == 153) {
+		id = buffer[5];
+		buffer[5] = buffer[3];
+		buffer[4] = buffer[2];
+		buffer[3] = buffer[1];
+		buffer[2] = buffer[0];
 	}
 
 	return id;
@@ -1093,8 +1093,8 @@ play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, 
 	}
 	unsigned char commandId = getCommandId(buffer);
 	if (commandId != 0) {
-		buffer++;
-		bufsize--;
+		buffer += 2;
+		bufsize -= 2;
 		addResponseToCommandList(commandId);
 	}
 

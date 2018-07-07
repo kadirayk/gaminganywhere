@@ -287,6 +287,18 @@ encoder_unregister_client(void /*RTSPContext*/ *rtsp) {
 	return 0;
 }
 
+static vector<unsigned char> commandList;
+
+bool containsCommand(unsigned char idToCheck) {
+	for (std::vector<unsigned char>::size_type i = 0; i != commandList.size(); i++) {
+		unsigned char id = commandList.at(i);
+		if (id==idToCheck) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 /**
  * Send a packet to a sink server.
  *
@@ -310,7 +322,8 @@ encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t en
 	data = dpipe_load(pipe[0], NULL);
 	if (data!=NULL) {
 		unsigned char commandId = data->commandId;
-		if (commandId>0 && commandId <= 200) {
+		if (commandId>0 && commandId <= 200 && !containsCommand(commandId)) {
+			commandList.push_back(commandId);
 			AVPacketSideData *sideData = new AVPacketSideData();
 			pkt->side_data = sideData;
 			uint8_t idList[1] = {};
