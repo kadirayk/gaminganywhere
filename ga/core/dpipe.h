@@ -37,7 +37,7 @@ typedef struct dpipe_buffer_s {
 	void *internal;		/**< internal pointer to the allocated buffer space. Used with malloc() and free(). */
 	int offset;		/**< data pointer offset from internal */
 	struct dpipe_buffer_s *next;	/**< pointer to the next dpipe frame buffer */
-	int commandId; // for prsc perf evaluation
+	unsigned char commandId; // for prsc perf evaluation
 }	dpipe_buffer_t;
 
 typedef struct dpipe_s {

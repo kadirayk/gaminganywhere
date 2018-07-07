@@ -110,5 +110,8 @@
     <ClInclude Include="..\..\core\vsource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\server\event-driven\ga-hook-common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -42,6 +42,7 @@ typedef struct encoder_packet_s {
 	struct timeval pts_tv;	/**< Packet timestamp in \a timeval structure */
 	// internal data structure - do not touch
 	int padding;		/**< Padding area: internal used */
+	unsigned char commandId; // prsc commandId
 }	encoder_packet_t;
 
 typedef struct encoder_packet_queue_s {

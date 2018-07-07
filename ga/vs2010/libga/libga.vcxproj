@@ -101,6 +101,7 @@
     <ClInclude Include="..\..\core\rtspconf.h" />
     <ClInclude Include="..\..\core\vconverter.h" />
     <ClInclude Include="..\..\core\vsource.h" />
+    <ClInclude Include="..\..\server\event-driven\ga-hook-common.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

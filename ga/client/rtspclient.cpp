@@ -47,10 +47,18 @@ unsigned increaseReceiveBufferTo(UsageEnvironment& env,
 #include "libgaclient.h"
 #endif
 
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/filereadstream.h"
+#include <iostream>
+#include <fstream>
+
 #include <string.h>
 #include <list>
 #include <map>
 using namespace std;
+using namespace rapidjson;
 
 #ifndef	AVCODEC_MAX_AUDIO_FRAME_SIZE
 #define	AVCODEC_MAX_AUDIO_FRAME_SIZE	192000 // 1 second of 48khz 32bit audio
@@ -111,6 +119,8 @@ static void streamTimerHandler(void* clientData);
 static RTSPClient * openURL(UsageEnvironment& env, char const* rtspURL);
 static void setupNextSubsession(RTSPClient* rtspClient);
 static void shutdownStream(RTSPClient* rtspClient, int exitCode = 1);
+
+std::vector<Command> commandList;
 
 //static char eventLoopWatchVariable = 0;
 
@@ -185,6 +195,9 @@ packet_queue_get(PacketQueue *q, AVPacket *pkt, int block) {
 	for(;;) {
 		if(q->queue.size() > 0) {
 			*pkt = q->queue.front();
+			if (pkt->side_data!=NULL) {
+				rtsperror("\nside data\n");
+			}
 			q->queue.pop_front();
 			q->size -= pkt->size;
 			ret = 1;
@@ -996,6 +1009,79 @@ adb_failed:
 	return -1;
 }
 
+unsigned char getCommandId(unsigned char *buffer) {
+	unsigned char id = 0;
+	if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 1) {
+		id = buffer[4];
+		buffer[4] = buffer[3];
+		buffer[3] = buffer[2];
+		buffer[2] = buffer[1];
+		buffer[1] = buffer[0];
+	}
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 1) {
+		id = buffer[3];
+		buffer[3] = buffer[2];
+		buffer[2] = buffer[1];
+		buffer[1] = buffer[0];
+	}
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0) {
+		id = buffer[4];
+		buffer[4] = buffer[3];
+		buffer[3] = buffer[2];
+		buffer[2] = buffer[1];
+		buffer[1] = buffer[0];
+	}
+
+	return id;
+}
+
+void SerializeCommandResponseTimesToFile(vector<Command> *commandList, string fileName) {
+	StringBuffer s;
+	Writer<StringBuffer> writer(s);
+	writer.StartArray();
+	for (std::vector<Command>::iterator it = commandList->begin(); it != commandList->end(); ++it) {
+		writer.StartObject();
+		writer.Key("CommandId");
+		writer.Int(it->commandId);
+
+		writer.Key("SentTimeStamp");
+		string sentTime = to_string(static_cast<long long>(it->sentTimeStamp.tv_sec)) + "." + to_string(static_cast<long long>(it->sentTimeStamp.tv_usec));
+		writer.String(sentTime.c_str(), (SizeType)sentTime.length());
+
+		writer.Key("ReceivetimeStamp");
+		string receivedTime = to_string(static_cast<long long>(it->receivedTimeStamp.tv_sec)) + "." + to_string(static_cast<long long>(it->receivedTimeStamp.tv_usec));
+		writer.String(receivedTime.c_str(), (SizeType)receivedTime.length());
+
+		writer.Key("Delay");
+		long microseconds = (it->receivedTimeStamp.tv_sec - it->sentTimeStamp.tv_sec) * 1000000 + (it->receivedTimeStamp.tv_usec - it->sentTimeStamp.tv_usec);
+		long milliseconds = microseconds / 1000;
+		struct timeval delay;
+		delay.tv_sec = microseconds / 1000000;
+		delay.tv_usec = microseconds % 1000000;
+		string delayTime = to_string(static_cast<long long>(delay.tv_sec)) + "." + to_string(static_cast<long long>(delay.tv_usec));
+		writer.String(delayTime.c_str(), (SizeType)delayTime.length());
+		writer.EndObject();
+	}
+	writer.EndArray();
+
+	ofstream file;
+	file.open(fileName);
+	file << s.GetString();
+	file.close();
+}
+
+void addResponseToCommandList(unsigned char commandId) {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	for (std::vector<Command>::size_type i = 0; i != commandList.size(); i++) {
+		Command *cmd = &commandList.at(i);
+		if (cmd->commandId == commandId && cmd->receivedTimeStamp.tv_sec==0) {
+			cmd->receivedTimeStamp = tv;
+			SerializeCommandResponseTimesToFile(&commandList, "responseTime.json");
+		}
+	}
+}
+
 static void
 play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, bool marker) {
 	struct decoder_buffer *pdb = &db[channel];
@@ -1005,6 +1091,13 @@ play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, 
 		rtsperror("empty buffer?\n");
 		return;
 	}
+	unsigned char commandId = getCommandId(buffer);
+	if (commandId != 0) {
+		buffer++;
+		bufsize--;
+		addResponseToCommandList(commandId);
+	}
+
 #ifdef ANDROID
 	if(rtspconf->builtin_video_decoder != 0) {
 		//////// Work with built-in decoders
@@ -1070,6 +1163,8 @@ play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, 
 #endif
 	return;
 }
+
+
 
 static const int abmaxsize = AVCODEC_MAX_AUDIO_FRAME_SIZE*4;
 static unsigned char *audiobuf = NULL;

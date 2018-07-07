@@ -98,6 +98,19 @@ void GAVideoLiveSource
 	// Instead, our event trigger must be called (e.g., from a separate thread) when new data becomes available.
 }
 
+char* appendCharToCharArray(char* array, char a)
+{
+	size_t len = strlen(array);
+
+	char* ret = new char[len + 1];
+
+	strcpy(ret, array);
+	ret[len] = a;
+
+	return ret;
+}
+
+
 void GAVideoLiveSource
 ::deliverFrame() {
 	// This function is called when new frame data is available from the device.
@@ -125,10 +138,12 @@ void GAVideoLiveSource
 	if (!isCurrentlyAwaitingData()) return; // we're not ready for the data yet
 
 	encoder_packet_t pkt;
-	u_int8_t* newFrameDataStart = NULL; //%%% TO BE WRITTEN %%%
+	char* newFrameDataStart = NULL; //%%% TO BE WRITTEN %%%
 	unsigned newFrameSize = 0; //%%% TO BE WRITTEN %%%
 
-	newFrameDataStart = (u_int8_t*) encoder_pktqueue_front(this->channelId, &pkt);
+	newFrameDataStart = encoder_pktqueue_front(this->channelId, &pkt);
+	int array_size = sizeof(newFrameDataStart);
+
 	if(newFrameDataStart == NULL)
 		return;
 	newFrameSize = pkt.size;
@@ -144,9 +159,30 @@ void GAVideoLiveSource
 				newFrameDataStart += 3;
 				newFrameSize -= 3;
 			}
+			else {
+				int error = 1;
+			}
 		}
+		else {
+			int error = 1;
+		}
+	} else {
+		int error = 1;
 	}
 #endif
+
+	// prsc here we decrease the pointer value to attach commandId to the head of the buffer
+	// and increase the frame size
+	if (pkt.commandId!=NULL && pkt.commandId>0 && pkt.commandId<=200) {
+		newFrameDataStart--;
+		newFrameDataStart[0] = pkt.commandId;
+		newFrameSize++;
+	}
+	//newFrameDataStart++;
+	//newFrameDataStart = appendCharToCharArray(newFrameDataStart, pkt.commandId);
+	//newFrameSize--;
+	//newFrameDataStart[5] = pkt.commandId;
+	array_size = sizeof(newFrameDataStart);
 	// Deliver the data here:
 	if (newFrameSize > fMaxSize) {
 		fFrameSize = fMaxSize;

@@ -464,7 +464,6 @@ void SerializeEventsToFile(vector<KeyPress> *keySequence, string fileName) {
 	file.close();
 }
 
-
 std::vector<KeyPress> ReadReplaySequenceFromFile(string filename) {
 	std::vector<KeyPress> eventsFromFile;
 	using namespace rapidjson;
@@ -557,6 +556,8 @@ void *replayEvents(void *ptr) {
 	return NULL;
 }
 
+static unsigned char commandIdCounter = 0;
+
 void
 ProcessEvent(SDL_Event *event) {
 	if (isReplay) {
@@ -595,6 +596,10 @@ ProcessEvent(SDL_Event *event) {
 		} else
 		//
 		if(rtspconf->ctrlenable) {
+			m.which = commandIdCounter++;
+			gettimeofday(&tv, NULL);
+			Command cmd = { commandIdCounter, tv, 0 };
+			commandList.push_back(cmd);
 		sdlmsg_keyboard(&m, 0,
 			event->key.keysym.scancode,
 			event->key.keysym.sym,
@@ -632,6 +637,10 @@ ProcessEvent(SDL_Event *event) {
 		} else
 		//
 		if(rtspconf->ctrlenable) {
+			m.which = commandIdCounter++;
+			gettimeofday(&tv, NULL);
+			Command cmd = { commandIdCounter, tv, 0 };
+			commandList.push_back(cmd);
 		sdlmsg_keyboard(&m, 1,
 			event->key.keysym.scancode,
 			event->key.keysym.sym,

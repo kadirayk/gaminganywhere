@@ -652,10 +652,7 @@ sdl12_hook_replay(sdlmsg_t *msg) {
 		sdl12evt.key.type =
 			msgk->is_pressed ? SDL12_KEYDOWN : SDL12_KEYUP;
 		
-		// for prsc commandId
-		// sdl12evt.key.which = 0;
-		sdl12evt.key.which = msgk->which;
-		
+		sdl12evt.key.which = 0;
 		sdl12evt.key.state =
 			msgk->is_pressed ? SDL_PRESSED : SDL_RELEASED;
 		sdl12evt.key.keysym.scancode = msgk->scancode/*0*/;
@@ -750,9 +747,11 @@ sdl12_hook_replay(sdlmsg_t *msg) {
 		break;
 	}
 	// prsc keep list of commands
-	string key = "asd";
-	Command cmd = { key, msgk->which };
-	commandList.push_back(cmd);
+	if (msgk->commandId!=0) {
+		string key = "asd";
+		Command cmd = { key, msgk->commandId };
+		commandList.push_back(cmd);
+	}
 	return;
 }
 
@@ -1052,10 +1051,12 @@ hook_SDL_GL_SwapBuffers() {
 
 	// duplicate from channel 0 to other channels
 	ga_hook_capture_dupframe(frame);
-	dpipe_store(g_pipe[0], data);
-	
+
 	//prsc attach game response to command
 	attach_response(data);
+
+	dpipe_store(g_pipe[0], data);
+
 	return;
 }
 

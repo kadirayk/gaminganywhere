@@ -77,6 +77,18 @@ struct RTSPThreadParam {
 
 extern struct RTSPConf *rtspconf;
 
+extern struct Command;
+
+struct Command {
+	unsigned char commandId;
+	timeval sentTimeStamp;
+	timeval receivedTimeStamp;
+};
+
+extern std::vector<Command> commandList;
+
+
+
 void rtsperror(const char *fmt, ...);
 void * rtsp_thread(void *param);
 

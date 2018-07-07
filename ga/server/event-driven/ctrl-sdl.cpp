@@ -120,6 +120,7 @@ sdlmsg_ntoh(sdlmsg_t *msg) {
 		if(msgk->sdlkey)	msgk->sdlkey = (int) ntohl(msgk->sdlkey);
 		if(msgk->unicode)	msgk->unicode = ntohl(msgk->unicode);
 		if(msgk->sdlmod)	msgk->sdlmod = ntohs(msgk->sdlmod);
+		if (msgk->commandId)	msgk->commandId = msgk->commandId;
 		break;
 	case SDL_EVENT_MSGTYPE_MOUSEKEY:
 	case SDL_EVENT_MSGTYPE_MOUSEMOTION:

@@ -88,6 +88,7 @@ rtsp_printf(RTSPContext *ctx, const char *fmt, ...) {
 int
 rtsp_write_bindata(RTSPContext *ctx, int streamid, uint8_t *buf, int buflen) {
 	int i, pktlen;
+	int a = 3;
 	char header[4];
 	//
 	if(buflen < 4) {

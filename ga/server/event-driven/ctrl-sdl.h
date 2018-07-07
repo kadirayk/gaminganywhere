@@ -79,6 +79,7 @@ struct sdlmsg_keyboard_s {
 	unsigned short msgsize;
 	unsigned char msgtype;		// SDL_EVENT_MSGTYPE_KEYBOARD
 	unsigned char which;
+	int commandId;
 	unsigned char is_pressed;
 	unsigned char unused0;
 	unsigned short scancode;	// scancode

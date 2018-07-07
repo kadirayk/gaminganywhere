@@ -27,6 +27,7 @@
 
 #include "vsource.h"
 #include "encoder-common.h"
+#include "dpipe.h"
 
 using namespace std;
 
@@ -108,7 +109,7 @@ encoder_register_vencoder(ga_module_t *m, void *param) {
 	return 0;
 }
 
-/**
+/**#include "ga-hook-common.h"
  * Register an audio encoder module.
  *
  * @param m [in] Pointer to the audio encoder module.
@@ -303,6 +304,23 @@ encoder_unregister_client(void /*RTSPContext*/ *rtsp) {
  */
 int
 encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t encoderPts, struct timeval *ptv) {
+	dpipe_buffer_t *data;
+	dpipe_t *pipe[1];
+	pipe[0] = dpipe_lookup("video-0");
+	data = dpipe_load(pipe[0], NULL);
+	if (data!=NULL) {
+		unsigned char commandId = data->commandId;
+		if (commandId>0 && commandId <= 200) {
+			AVPacketSideData *sideData = new AVPacketSideData();
+			pkt->side_data = sideData;
+			uint8_t idList[1] = {};
+			idList[0] = data->commandId;
+			pkt->side_data->data = idList;
+			pkt->side_data->size = 10;
+			pkt->side_data->type = AV_PKT_DATA_STRINGS_METADATA;
+		}
+	}
+	dpipe_put(pipe[0], data);
 	if(sinkserver) {
 		return sinkserver->send_packet(prefix, channelId, pkt, encoderPts, ptv);
 	}
@@ -482,6 +500,11 @@ encoder_pktqueue_size(int channelId) {
 	return pktqueue[channelId].datasize;
 }
 
+struct Pkt_Id {
+	AVPacket *pkt;
+	int id;
+};
+
 /**
  * Add a packet into a packet queue.
  *
@@ -526,6 +549,9 @@ size_check:
 	qp.data = q->buf + q->tail;
 	qp.size = pkt->size;
 	qp.pts_int64 = pkt->pts;
+	if (pkt->side_data!=NULL && pkt->side_data->type==AV_PKT_DATA_STRINGS_METADATA) {
+		qp.commandId = pkt->side_data->data[0];
+	}
 	if(ptv != NULL) {
 		qp.pts_tv = *ptv;
 	} else {

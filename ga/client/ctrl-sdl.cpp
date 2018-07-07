@@ -146,12 +146,11 @@ sdlmsg_ntoh(sdlmsg_t *msg) {
 }
 
 
-int commandIdCounter = 10000;
-
 sdlmsg_t *
 sdlmsg_keyboard(sdlmsg_t *msg, unsigned char pressed, unsigned short scancode, SDL_Keycode key, unsigned short mod, unsigned int unicode)
 {
 	sdlmsg_keyboard_t *msgk = (sdlmsg_keyboard_t*) msg;
+	unsigned char commandId = msg->which;
 	//ga_error("sdl client: key event code=%x key=%x mod=%x pressed=%u\n", scancode, key, mod, pressed);
 	bzero(msg, sizeof(sdlmsg_keyboard_t));
 	msgk->msgsize = htons(sizeof(sdlmsg_keyboard_t));
@@ -164,7 +163,8 @@ sdlmsg_keyboard(sdlmsg_t *msg, unsigned char pressed, unsigned short scancode, S
 #endif
 	msgk->sdlmod = htons(mod);
 	// prsc attach commandId to messages
-	msgk->which = commandIdCounter++;
+	msgk->commandId = commandId;
+	msg->which = commandId;
 	return msg;
 }
 
