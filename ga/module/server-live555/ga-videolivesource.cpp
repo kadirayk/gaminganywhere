@@ -23,6 +23,9 @@
 #include "server-live555.h"
 #include "ga-videolivesource.h"
 #include "ga-liveserver.h"
+#include <iostream>
+#include <fstream>
+using namespace std;
 
 static GAVideoLiveSource *vLiveSource[VIDEO_SOURCE_CHANNEL_MAX];
 static EventTriggerId eventTriggerId[VIDEO_SOURCE_CHANNEL_MAX];
@@ -147,6 +150,8 @@ void GAVideoLiveSource
 	if(newFrameDataStart == NULL)
 		return;
 	newFrameSize = pkt.size;
+
+	
 #ifdef DISCRETE_FRAMER	// special handling for packets with startcode
 	if(remove_startcode != 0) {
 		if(newFrameDataStart[0] == 0
@@ -171,18 +176,20 @@ void GAVideoLiveSource
 	}
 #endif
 
+
+
 	// prsc here we decrease the pointer value to attach commandId to the head of the buffer
 	// and increase the frame size
-	if (pkt.commandId!=NULL && pkt.commandId>0 && pkt.commandId<=200) {
-		newFrameDataStart -= 2;
-		newFrameDataStart[0] = 153;
-		newFrameDataStart[1] = pkt.commandId;
-		newFrameSize += 2;
+	newFrameDataStart -= 4;
+	for (int i = 0; i < 4; i++) {
+		if (pkt.commandId != NULL && pkt.commandId > 0 && pkt.commandId <= 200) {
+			newFrameDataStart[i] = pkt.commandId;
+		} else {
+			newFrameDataStart[i] = 0;
+		}
 	}
-	//newFrameDataStart++;
-	//newFrameDataStart = appendCharToCharArray(newFrameDataStart, pkt.commandId);
-	//newFrameSize--;
-	//newFrameDataStart[5] = pkt.commandId;
+	newFrameSize += 4;
+
 	array_size = sizeof(newFrameDataStart);
 	// Deliver the data here:
 	if (newFrameSize > fMaxSize) {

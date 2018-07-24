@@ -59,6 +59,7 @@ extern "C" {
 #include "rapidjson/filereadstream.h"
 #include <iostream>
 #include <fstream>
+#include <ctime>
 
 #include <map>
 using namespace rapidjson;
@@ -519,6 +520,7 @@ void AddToKeySequence(SDL_Event *event) {
 bool isReplay = false;
 //pthread_mutex_t lock;
 
+std::clock_t start;
 
 Uint32 CalculateKeyDelay(KeyPress *currentKey, KeyPress *nextKey) {
 	Uint32 currentTimeStamp = currentKey->timestamp;
@@ -527,9 +529,12 @@ Uint32 CalculateKeyDelay(KeyPress *currentKey, KeyPress *nextKey) {
 	return nextTimeStamp - currentTimeStamp;
 }
 
+bool stopReplay = false;
+
 void *replayEvents(void *ptr) {
 	//pthread_mutex_lock(&lock);
 	isReplay = false;
+	stopReplay = true;
 	//pthread_mutex_unlock(&lock);
 	keySequence.clear(); // clear keys stored until replay
 	std::vector<KeyPress> keysFromFile = ReadReplaySequenceFromFile("keyPress.json");
@@ -553,6 +558,9 @@ void *replayEvents(void *ptr) {
 		SDL_PushEvent(&event);
 		Sleep(delay);
 	}
+	SDL_Event quit_event = {};
+	quit_event.type = SDL_QUIT;
+	SDL_PushEvent(&quit_event);
 	return NULL;
 }
 
@@ -560,6 +568,17 @@ static unsigned char commandIdCounter = 0;
 
 void
 ProcessEvent(SDL_Event *event) {
+	// start replay 5 sec after start
+	/*if (!stopReplay) {
+		double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+		if (duration>15) {
+			isReplay = true;
+		}
+	} else {
+		isReplay = false;
+	}*/
+
+
 	if (isReplay) {
 		pthread_t replayThread;
 		pthread_create(&replayThread, NULL, replayEvents, NULL);
@@ -874,6 +893,10 @@ main(int argc, char *argv[]) {
 	pthread_t ctrlthread;
 	pthread_t watchdog;
 	char savefile_keyts[128];
+
+	//start timer to replay commands
+	start = std::clock();
+
 	//
 #ifdef ANDROID
 	if(ga_init("/sdcard/ga/android.conf", NULL) < 0) {

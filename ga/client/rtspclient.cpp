@@ -1086,17 +1086,81 @@ static void
 play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, bool marker) {
 	struct decoder_buffer *pdb = &db[channel];
 	int left;
-	//
-	if(bufsize <= 0 || buffer == NULL) {
+
+		//
+	if (bufsize <= 0 || buffer == NULL) {
 		rtsperror("empty buffer?\n");
 		return;
 	}
-	unsigned char commandId = getCommandId(buffer);
+
+	unsigned char commandId = 0;
+	// Strip Noise
+	if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 1) {
+		commandId = buffer[7];
+		buffer[7] = buffer[3];
+		buffer[6] = buffer[2];
+		buffer[5] = buffer[1];
+		buffer[4] = buffer[0];
+		buffer += 4;
+		bufsize -= 4;
+	 }
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 1) {
+		commandId = buffer[6];
+		buffer[6] = buffer[2];
+		buffer[5] = buffer[1];
+		buffer[4] = buffer[0];
+		buffer += 4;
+		bufsize -= 4;
+	}
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0) {
+		commandId = buffer[7];
+		buffer[7] = buffer[3];
+		buffer[6] = buffer[2];
+		buffer[5] = buffer[1];
+		buffer[4] = buffer[0];
+		buffer += 4;
+		bufsize -= 4;
+	}
+
 	if (commandId != 0) {
-		buffer += 2;
-		bufsize -= 2;
 		addResponseToCommandList(commandId);
 	}
+	// Strip Noise
+
+	//unsigned char commandId = getCommandId(buffer);
+
+	/*unsigned char id = 0;
+	if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 1) {
+		id = buffer[5];
+		buffer[5] = buffer[3];
+		buffer[4] = buffer[2];
+		buffer[3] = buffer[1];
+		buffer[2] = buffer[0];
+		buffer += 2;
+		bufsize -= 2;
+	}
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 1) {
+		id = buffer[4];
+		buffer[4] = buffer[2];
+		buffer[3] = buffer[1];
+		buffer[2] = buffer[0];
+		buffer += 2;
+		bufsize -= 2;
+	}
+	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0) {
+		id = buffer[5];
+		buffer[5] = buffer[3];
+		buffer[4] = buffer[2];
+		buffer[3] = buffer[1];
+		buffer[2] = buffer[0];
+		buffer += 2;
+		bufsize -= 2;
+	}
+	
+
+
+	*/
+
 
 #ifdef ANDROID
 	if(rtspconf->builtin_video_decoder != 0) {
