@@ -60,6 +60,7 @@ extern "C" {
 #include <iostream>
 #include <fstream>
 #include <ctime>
+#include "INIReader.h"
 
 #include <map>
 using namespace rapidjson;
@@ -73,6 +74,8 @@ using namespace std;
 #define	WINDOW_TITLE		"Player Channel #%d (%dx%d)"
 
 #define REPLAY_EVENT_CODE 111
+
+#define PRSC_CONF "prsc_conf.ini"
 
 pthread_mutex_t watchdogMutex;
 struct timeval watchdogTimer = {0LL, 0LL};
@@ -96,6 +99,11 @@ static FILE *savefp_keyts = NULL;
 #define	DEFAULT_FONTSIZE	24
 static TTF_Font *defFont = NULL;
 #endif
+
+// prsc_conf values
+bool replay_from_keypress;
+int replay_start_delay;
+bool exit_after_replay;
 
 static void
 switch_fullscreen() {
@@ -558,9 +566,13 @@ void *replayEvents(void *ptr) {
 		SDL_PushEvent(&event);
 		Sleep(delay);
 	}
-	SDL_Event quit_event = {};
-	quit_event.type = SDL_QUIT;
-	SDL_PushEvent(&quit_event);
+
+	// exit client after replay
+	if (exit_after_replay) {
+		SDL_Event quit_event = {};
+		quit_event.type = SDL_QUIT;
+		SDL_PushEvent(&quit_event);
+	}
 	return NULL;
 }
 
@@ -569,15 +581,16 @@ static unsigned char commandIdCounter = 0;
 void
 ProcessEvent(SDL_Event *event) {
 	// start replay 5 sec after start
-	/*if (!stopReplay) {
-		double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-		if (duration>15) {
-			isReplay = true;
+	if (replay_from_keypress) {
+		if (!stopReplay) {
+			double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+			if (duration>replay_start_delay) {
+				isReplay = true;
+			}
+		} else {
+			isReplay = false;
 		}
-	} else {
-		isReplay = false;
-	}*/
-
+	}
 
 	if (isReplay) {
 		pthread_t replayThread;
@@ -885,6 +898,17 @@ watchdog_thread(void *args) {
 	return NULL;
 }
 
+void init_configuration() {
+	INIReader reader(PRSC_CONF);
+	if (reader.ParseError() < 0) {
+		std::cout << "Can't load '"<< PRSC_CONF << "'\n";
+		return;
+	}
+	replay_from_keypress = reader.GetBoolean("ga-client", "replay_from_keypress", false);
+	replay_start_delay = reader.GetInteger("ga-client", "replay_start_delay", 5);
+	exit_after_replay = reader.GetBoolean("ga-client", "exit_after_replay", false);
+}
+
 int
 main(int argc, char *argv[]) {
 	int i;
@@ -894,6 +918,7 @@ main(int argc, char *argv[]) {
 	pthread_t watchdog;
 	char savefile_keyts[128];
 
+	init_configuration();
 	//start timer to replay commands
 	start = std::clock();
 

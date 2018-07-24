@@ -84,6 +84,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\client\ctrl-sdl.h" />
+    <ClInclude Include="..\..\client\INIReader.h" />
     <ClInclude Include="..\..\client\minih264.h" />
     <ClInclude Include="..\..\client\minivp8.h" />
     <ClInclude Include="..\..\client\qosreport.h" />
