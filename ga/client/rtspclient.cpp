@@ -1094,7 +1094,8 @@ play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, 
 	}
 
 	unsigned char commandId = 0;
-	// Strip Noise
+	// start prsc
+	//get commandId from first 4 bytes and remove
 	if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 1) {
 		commandId = buffer[7];
 		buffer[7] = buffer[3];
@@ -1125,42 +1126,7 @@ play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, 
 	if (commandId != 0) {
 		addResponseToCommandList(commandId);
 	}
-	// Strip Noise
-
-	//unsigned char commandId = getCommandId(buffer);
-
-	/*unsigned char id = 0;
-	if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 1) {
-		id = buffer[5];
-		buffer[5] = buffer[3];
-		buffer[4] = buffer[2];
-		buffer[3] = buffer[1];
-		buffer[2] = buffer[0];
-		buffer += 2;
-		bufsize -= 2;
-	}
-	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 1) {
-		id = buffer[4];
-		buffer[4] = buffer[2];
-		buffer[3] = buffer[1];
-		buffer[2] = buffer[0];
-		buffer += 2;
-		bufsize -= 2;
-	}
-	else if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0) {
-		id = buffer[5];
-		buffer[5] = buffer[3];
-		buffer[4] = buffer[2];
-		buffer[3] = buffer[1];
-		buffer[2] = buffer[0];
-		buffer += 2;
-		bufsize -= 2;
-	}
-	
-
-
-	*/
-
+	// end prsc
 
 #ifdef ANDROID
 	if(rtspconf->builtin_video_decoder != 0) {

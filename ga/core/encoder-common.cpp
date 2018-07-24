@@ -316,6 +316,8 @@ bool containsCommand(unsigned char idToCheck) {
  */
 int
 encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t encoderPts, struct timeval *ptv) {
+	// start prsc
+	// get commandId of data from dpipe
 	dpipe_buffer_t *data;
 	dpipe_t *pipe[1];
 	pipe[0] = dpipe_lookup("video-0");
@@ -334,6 +336,7 @@ encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t en
 		}
 	}
 	dpipe_put(pipe[0], data);
+	// end prsc
 	if(sinkserver) {
 		return sinkserver->send_packet(prefix, channelId, pkt, encoderPts, ptv);
 	}
