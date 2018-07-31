@@ -113,6 +113,7 @@ char* appendCharToCharArray(char* array, char a)
 	return ret;
 }
 
+std::vector<unsigned char> sentCommands;
 
 void GAVideoLiveSource
 ::deliverFrame() {
@@ -184,11 +185,13 @@ void GAVideoLiveSource
 	for (int i = 0; i < 4; i++) {
 		if (pkt.commandId != NULL && pkt.commandId > 0 && pkt.commandId <= 200) {
 			newFrameDataStart[i] = pkt.commandId;
+			sentCommands.push_back(pkt.commandId);
 		} else {
 			newFrameDataStart[i] = 0;
 		}
 	}
 	newFrameSize += 4;
+
 
 	array_size = sizeof(newFrameDataStart);
 	// Deliver the data here:

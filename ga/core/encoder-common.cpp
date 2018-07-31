@@ -324,7 +324,7 @@ encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t en
 	data = dpipe_load(pipe[0], NULL);
 	if (data!=NULL) {
 		unsigned char commandId = data->commandId;
-		if (commandId>0 && commandId <= 200 && !containsCommand(commandId)) {
+		if (commandId>0 && commandId <= 200) {
 			commandList.push_back(commandId);
 			AVPacketSideData *sideData = new AVPacketSideData();
 			pkt->side_data = sideData;
@@ -332,7 +332,7 @@ encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t en
 			idList[0] = data->commandId;
 			pkt->side_data->data = idList;
 			pkt->side_data->size = 10;
-			pkt->side_data->type = AV_PKT_DATA_STRINGS_METADATA;
+			pkt->side_data->type = PRSC_COMMAND_ID;
 		}
 	}
 	dpipe_put(pipe[0], data);
@@ -565,7 +565,7 @@ size_check:
 	qp.data = q->buf + q->tail;
 	qp.size = pkt->size;
 	qp.pts_int64 = pkt->pts;
-	if (pkt->side_data!=NULL && pkt->side_data->type==AV_PKT_DATA_STRINGS_METADATA) {
+	if (pkt->side_data!=NULL && pkt->side_data->type==PRSC_COMMAND_ID) {
 		qp.commandId = pkt->side_data->data[0];
 	}
 	if(ptv != NULL) {
