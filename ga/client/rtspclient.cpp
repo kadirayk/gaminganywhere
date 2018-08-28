@@ -1035,41 +1035,6 @@ unsigned char getCommandId(unsigned char *buffer) {
 	return id;
 }
 
-void SerializeCommandResponseTimesToFile(vector<Command> *commandList, string fileName) {
-	StringBuffer s;
-	Writer<StringBuffer> writer(s);
-	writer.StartArray();
-	for (std::vector<Command>::iterator it = commandList->begin(); it != commandList->end(); ++it) {
-		writer.StartObject();
-		writer.Key("CommandId");
-		writer.Int(it->commandId);
-
-		writer.Key("SentTimeStamp");
-		string sentTime = to_string(static_cast<long long>(it->sentTimeStamp.tv_sec)) + "." + to_string(static_cast<long long>(it->sentTimeStamp.tv_usec));
-		writer.String(sentTime.c_str(), (SizeType)sentTime.length());
-
-		writer.Key("ReceivetimeStamp");
-		string receivedTime = to_string(static_cast<long long>(it->receivedTimeStamp.tv_sec)) + "." + to_string(static_cast<long long>(it->receivedTimeStamp.tv_usec));
-		writer.String(receivedTime.c_str(), (SizeType)receivedTime.length());
-
-		writer.Key("Delay");
-		long microseconds = (it->receivedTimeStamp.tv_sec - it->sentTimeStamp.tv_sec) * 1000000 + (it->receivedTimeStamp.tv_usec - it->sentTimeStamp.tv_usec);
-		long milliseconds = microseconds / 1000;
-		struct timeval delay;
-		delay.tv_sec = microseconds / 1000000;
-		delay.tv_usec = microseconds % 1000000;
-		string delayTime = to_string(static_cast<long long>(delay.tv_sec)) + "." + to_string(static_cast<long long>(delay.tv_usec));
-		writer.String(delayTime.c_str(), (SizeType)delayTime.length());
-		writer.EndObject();
-	}
-	writer.EndArray();
-
-	ofstream file;
-	file.open(fileName);
-	file << s.GetString();
-	file.close();
-}
-
 void addResponseToCommandList(unsigned char commandId) {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
@@ -1077,7 +1042,6 @@ void addResponseToCommandList(unsigned char commandId) {
 		Command *cmd = &commandList.at(i);
 		if (cmd->commandId == commandId && cmd->receivedTimeStamp.tv_sec==0) {
 			cmd->receivedTimeStamp = tv;
-			SerializeCommandResponseTimesToFile(&commandList, "responseTime.json");
 		}
 	}
 }

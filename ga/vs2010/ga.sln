@@ -1,6 +1,8 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2003
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libga", "libga\libga.vcxproj", "{04C6CB4E-10AB-45F3-A6AB-C6EBA3CF4FB3}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ga-client", "ga-client\ga-client.vcxproj", "{E550D146-096F-4D37-9645-C3E05C84C76E}"
@@ -151,5 +153,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9BB3C8D4-E4CB-455B-90F8-0C4C76ED41C3}
 	EndGlobalSection
 EndGlobal
