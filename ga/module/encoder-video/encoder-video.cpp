@@ -290,6 +290,7 @@ vencoder_threadproc(void *arg) {
 		gettimeofday(&tv, NULL);
 		to.tv_sec = tv.tv_sec+1;
 		to.tv_nsec = tv.tv_usec * 1000;
+
 		data = dpipe_load(pipe, &to);
 		if(data == NULL) {
 			ga_error("viedo encoder: image source timed out.\n");

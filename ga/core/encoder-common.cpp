@@ -28,6 +28,7 @@
 #include "vsource.h"
 #include "encoder-common.h"
 #include "dpipe.h"
+#include <iostream>
 
 using namespace std;
 
@@ -293,10 +294,35 @@ bool containsCommand(unsigned char idToCheck) {
 	for (std::vector<unsigned char>::size_type i = 0; i != commandList.size(); i++) {
 		unsigned char id = commandList.at(i);
 		if (id==idToCheck) {
-			return TRUE;
+			return true;
 		}
 	}
-	return FALSE;
+	return false;
+}
+
+void *get_command_of_data_from_dpipe(void *pkt_ptr) {
+	AVPacket *pkt = (AVPacket *)pkt_ptr;
+	cout << "pkt inn func: " << pkt->data << "\n";
+	// get commandId of data from dpipe
+	dpipe_buffer_t *data;
+	dpipe_t *pipe[1];
+	pipe[0] = dpipe_lookup("video-0");
+	data = dpipe_load(pipe[0], NULL);
+	if (data != NULL) {
+		unsigned char commandId = data->commandId;
+		if (commandId > 0 && commandId <= 200) {
+			commandList.push_back(commandId);
+			AVPacketSideData *sideData = new AVPacketSideData();
+			pkt->side_data = sideData;
+			uint8_t idList[1] = {};
+			idList[0] = data->commandId;
+			pkt->side_data->data = idList;
+			pkt->side_data->size = 10;
+			pkt->side_data->type = PRSC_COMMAND_ID;
+		}
+	}
+	dpipe_put(pipe[0], data);
+	return NULL;
 }
 
 /**
@@ -317,14 +343,15 @@ bool containsCommand(unsigned char idToCheck) {
 int
 encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t encoderPts, struct timeval *ptv) {
 	// start prsc
+	//AVPacket *pkt = (AVPacket *)pkt_ptr;
 	// get commandId of data from dpipe
-	dpipe_buffer_t *data;
+	/*dpipe_buffer_t *data;
 	dpipe_t *pipe[1];
 	pipe[0] = dpipe_lookup("video-0");
 	data = dpipe_load(pipe[0], NULL);
-	if (data!=NULL) {
+	if (data != NULL) {
 		unsigned char commandId = data->commandId;
-		if (commandId>0 && commandId <= 200) {
+		if (commandId > 0 && commandId <= 200) {
 			commandList.push_back(commandId);
 			AVPacketSideData *sideData = new AVPacketSideData();
 			pkt->side_data = sideData;
@@ -336,11 +363,12 @@ encoder_send_packet(const char *prefix, int channelId, AVPacket *pkt, int64_t en
 		}
 	}
 	dpipe_put(pipe[0], data);
-	// end prsc
+	*/// end prsc
 	if(sinkserver) {
 		return sinkserver->send_packet(prefix, channelId, pkt, encoderPts, ptv);
 	}
 	ga_error("encoder: no sink server registered.\n");
+	
 	return -1;
 }
 

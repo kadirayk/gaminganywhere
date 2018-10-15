@@ -224,6 +224,8 @@ filter_RGB2YUV_threadproc(void *arg) {
 		//
 		dstdata = dpipe_get(dstpipe);
 		dstframe = (vsource_frame_t*) dstdata->pointer;
+		// carry prsc commandId
+		dstdata->commandId = srcdata->commandId;
 		// basic info
 		dstframe->imgpts = srcframe->imgpts;
 		dstframe->timestamp = srcframe->timestamp;
