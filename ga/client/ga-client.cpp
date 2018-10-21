@@ -603,7 +603,7 @@ void *replayEvents(void *ptr) {
 	}
 
 	//write response times to file
-	SerializeCommandResponseTimesToFile(&commandList, "./responseTime.json");
+	SerializeCommandResponseTimesToFile(&commandList, "responseTime.json");
 
 	// exit client after replay
 	if (exit_after_replay) {
