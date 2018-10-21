@@ -296,6 +296,7 @@ vencoder_threadproc(void *arg) {
 			ga_error("viedo encoder: image source timed out.\n");
 			continue;
 		}
+
 		frame = (vsource_frame_t*) data->pointer;
 		// handle pts
 		if(basePts == -1LL) {
@@ -362,6 +363,22 @@ vencoder_threadproc(void *arg) {
 			} else {
 				gettimeofday(&tv, NULL);
 			}
+
+			//prsc
+			if (data != NULL) {
+				unsigned char commandId = data->commandId;
+				if (commandId > 0 && commandId <= 200) {
+					AVPacketSideData *sideData = new AVPacketSideData();
+					pkt.side_data = sideData;
+					uint8_t idList[1] = {};
+					idList[0] = data->commandId;
+					pkt.side_data->data = idList;
+					pkt.side_data->size = 10;
+					pkt.side_data->type = PRSC_COMMAND_ID;
+				}
+			}
+
+
 			// send the packet
 			if(encoder_send_packet("video-encoder",
 				iid/*rtspconf->video_id*/, &pkt,
