@@ -121,6 +121,7 @@ static void setupNextSubsession(RTSPClient* rtspClient);
 static void shutdownStream(RTSPClient* rtspClient, int exitCode = 1);
 
 std::vector<Command> commandList;
+std::vector<timeval> frameTimeStamps;
 
 //static char eventLoopWatchVariable = 0;
 
@@ -838,6 +839,9 @@ play_video_priv(int ch/*channel*/, unsigned char *buffer, int bufsize, struct ti
 			break;
 		}
 		if(got_picture) {
+			timeval timeval;
+			gettimeofday(&timeval, NULL);
+			frameTimeStamps.push_back(timeval);
 #ifdef COUNT_FRAME_RATE
 			cf_frame[ch]++;
 			if(cf_tv0[ch].tv_sec == 0) {
@@ -851,6 +855,7 @@ play_video_priv(int ch/*channel*/, unsigned char *buffer, int bufsize, struct ti
 					cf_tv1[ch].tv_usec,
 					ch,
 					1000000.0 * cf_frame[ch] / cf_interval[ch]);
+				//fpsList.push_back(1000000.0 * cf_frame[ch] / cf_interval[ch]);
 				cf_tv0[ch] = cf_tv1[ch];
 				cf_frame[ch] = 0;
 			}
@@ -1045,6 +1050,7 @@ void addResponseToCommandList(unsigned char commandId) {
 		}
 	}
 }
+
 
 static void
 play_video(int channel, unsigned char *buffer, int bufsize, struct timeval pts, bool marker) {

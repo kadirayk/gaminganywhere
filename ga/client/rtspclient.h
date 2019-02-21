@@ -86,6 +86,8 @@ struct Command {
 };
 
 extern std::vector<Command> commandList;
+extern std::vector<float> fpsList;
+extern std::vector<timeval> frameTimeStamps;
 
 
 

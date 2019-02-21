@@ -539,6 +539,15 @@ Uint32 CalculateKeyDelay(KeyPress *currentKey, KeyPress *nextKey) {
 
 bool stopReplay = false;
 
+void writeFpsToFile(vector<timeval> *frameTimeStamps, string fileName) {
+	ofstream file;
+	file.open(fileName);
+	for (size_t i = 0; i < frameTimeStamps->size(); ++i) {
+		file << frameTimeStamps->at(i).tv_sec << "." << frameTimeStamps->at(i).tv_usec << endl;
+	}
+	file.close();
+}
+
 void SerializeCommandResponseTimesToFile(vector<Command> *commandList, string fileName) {
 	StringBuffer s;
 	Writer<StringBuffer> writer(s);
@@ -604,6 +613,7 @@ void *replayEvents(void *ptr) {
 
 	//write response times to file
 	SerializeCommandResponseTimesToFile(&commandList, "responseTime.json");
+	writeFpsToFile(&frameTimeStamps, "fps.log");
 
 	// exit client after replay
 	if (exit_after_replay) {
@@ -666,10 +676,18 @@ ProcessEvent(SDL_Event *event) {
 		} else
 		//
 		if(rtspconf->ctrlenable) {
-			m.which = commandIdCounter++;
-			gettimeofday(&tv, NULL);
-			Command cmd = { commandIdCounter, tv, 0 };
-			commandList.push_back(cmd);
+			if (event->key.keysym.sym == SDLK_F8) {
+				m.which = 199; // PRSC start measuring encoding quality
+			}
+			else if (event->key.keysym.sym == SDLK_F7) {
+				m.which = 198; // PRSC stop measuring encoding quality
+			}
+			else {
+				m.which = commandIdCounter++;
+				gettimeofday(&tv, NULL);
+				Command cmd = { commandIdCounter, tv, 0 };
+				commandList.push_back(cmd);
+			}
 		sdlmsg_keyboard(&m, 0,
 			event->key.keysym.scancode,
 			event->key.keysym.sym,
