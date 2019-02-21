@@ -26,6 +26,8 @@
 #include "ga-avcodec.h"
 #include "ga-conf.h"
 #include "ga-module.h"
+#include <iostream>
+#include <fstream>
 
 #include "dpipe.h"
 
@@ -57,6 +59,8 @@ static char *_pps[VIDEO_SOURCE_CHANNEL_MAX];
 static int _ppslen[VIDEO_SOURCE_CHANNEL_MAX];
 static char *_vps[VIDEO_SOURCE_CHANNEL_MAX];
 static int _vpslen[VIDEO_SOURCE_CHANNEL_MAX];
+
+static int measure_encoding_quality = 0;
 
 static int
 vencoder_deinit(void *arg) {
@@ -215,6 +219,202 @@ vencoder_reconfigure(int iid) {
 	return ret;
 }
 
+std::vector<float> differences;
+
+std::vector<float> avgErrors;
+
+float avgError() {
+	float total = 0.0;
+	for (int i = 0; i < differences.size(); i++) {
+		total += differences[i];
+	}
+	return (total / differences.size());
+}
+
+static void check_conversion(float density, AVFrame *pic_in, AVFrame *decoded_frame) {
+	int density_step = 1 / density;
+
+	uint8_t *Y_data_original = (uint8_t *)pic_in->data[0];
+	uint8_t *U_data_original = (uint8_t *)pic_in->data[1];
+	uint8_t *V_data_original = (uint8_t *)pic_in->data[2];
+
+	uint8_t *Y_data_decoded = (uint8_t *)decoded_frame->data[0];
+	uint8_t *U_data_decoded = (uint8_t *)decoded_frame->data[1];
+	uint8_t *V_data_decoded = (uint8_t *)decoded_frame->data[2];
+
+
+
+	for (int i = 0; i < pic_in->height; i = i + density_step) {
+		uint8_t Y_original = Y_data_original[i];
+		uint8_t U_original = U_data_original[i/2];
+		uint8_t V_original = V_data_original[i/2];
+
+		uint8_t Y_decoded = Y_data_decoded[i];
+		uint8_t U_decoded = U_data_decoded[i/2];
+		uint8_t V_decoded = V_data_decoded[i/2];
+
+		float diff_Y = (float)abs(Y_original - Y_decoded) / pic_in->height;
+		float diff_U = (float)abs(U_original - U_decoded) / pic_in->height / 2; 
+		float diff_V = (float)abs(V_original - V_decoded) / pic_in->height / 2;
+		float total_diff = diff_Y + diff_U + diff_V;
+		differences.push_back(total_diff);
+	}
+
+	/*
+	int step = pic_in->height;
+	uint8_t *data_Y = (uint8_t *) pic_in->data[0];
+	uint8_t *data_U = (uint8_t *) pic_in->data[1];
+	uint8_t *data_V = (uint8_t *) pic_in->data[2];
+
+	int size = pic_in->width * pic_in->height;
+
+	for (int i = 0; i < pic_in->height; i=i+density_step)
+	{
+		for (int j = 0; j < pic_in->width; j= j+density_step)
+		{
+			float Y = data_Y[i*step + j];
+			float U = data_U[(int)((i / 2)*(step / 2) + j / 2)];
+			float V = data_V[(int)((i / 2)*(step / 2) + j / 2)];
+
+			float R = Y + 1.402 * (V - 128);
+			float G = Y - 0.344 * (U - 128) - 0.714 * (V - 128);
+			float B = Y + 1.772 * (U - 128);
+
+
+			if (R < 0) { R = 0; } if (G < 0) { G = 0; } if (B < 0) { B = 0; }
+			if (R > 255) { R = 255; } if (G > 255) { G = 255; } if (B > 255) { B = 255; }
+
+			uint8_t pixel_R = pkt.data[3 + i*pic_in->height + j];
+			uint8_t pixel_G = pkt.data[3 + i*pic_in->height + j+1];
+			uint8_t pixel_B = pkt.data[3 + i*pic_in->height + j+2];
+			
+			float diff = abs(pixel_R - R) + abs(pixel_G - G) + abs(pixel_B - B);
+			differences.push_back(diff);
+		}
+	}
+	*/
+	avgErrors.push_back(avgError());
+	differences.clear();
+}
+
+static unsigned char *
+decode_sprop(AVCodecContext *ctx, const char *sprop) {
+	unsigned char startcode[] = { 0, 0, 0, 1 };
+	int sizemax = ctx->extradata_size + strlen(sprop) * 3;
+	unsigned char *extra = (unsigned char*)malloc(sizemax);
+	unsigned char *dest = extra;
+	int extrasize = 0;
+	int spropsize = strlen(sprop);
+	char *mysprop = strdup(sprop);
+	unsigned char *tmpbuf = (unsigned char *)strdup(sprop);
+	char *s0 = mysprop, *s1;
+	// already have extradata?
+	if (ctx->extradata) {
+		bcopy(ctx->extradata, extra, ctx->extradata_size);
+		extrasize = ctx->extradata_size;
+		dest += extrasize;
+	}
+	// start converting
+	while (*s0) {
+		int blen, more = 0;
+		for (s1 = s0; *s1; s1++) {
+			if (*s1 == ',' || *s1 == '\0')
+				break;
+		}
+		if (*s1 == ',')
+			more = 1;
+		*s1 = '\0';
+		if ((blen = av_base64_decode(tmpbuf, s0, spropsize)) > 0) {
+			int offset = 0;
+			// no start code?
+			if (memcmp(startcode, tmpbuf, sizeof(startcode)) != 0) {
+				bcopy(startcode, dest, sizeof(startcode));
+				offset += sizeof(startcode);
+			}
+			bcopy(tmpbuf, dest + offset, blen);
+			dest += offset + blen;
+			extrasize += offset + blen;
+		}
+		s0 = s1;
+		if (more) {
+			s0++;
+		}
+	}
+	// release
+	free(mysprop);
+	free(tmpbuf);
+	// show decoded sprop
+	if (extrasize > 0) {
+		if (ctx->extradata)
+			free(ctx->extradata);
+		ctx->extradata = extra;
+		ctx->extradata_size = extrasize;
+#ifdef SAVE_ENC
+		if (fout != NULL) {
+			fwrite(extra, sizeof(char), extrasize, fout);
+		}
+#endif
+		return ctx->extradata;
+	}
+	free(extra);
+	return NULL;
+}
+
+int
+init_vdecoder(AVCodecContext **ctx, AVFrame **frame, AVCodecContext *encoder) {
+	AVCodec *codec = NULL; //rtspconf->video_decoder_codec;
+	const char *sprop = "Z01AH7aAyBN+WEAAAAMAQAAAGSPGDKg=,aO88gA==";
+	const char **names = NULL;
+
+	const char *video_codec_name = encoder->codec_descriptor->name;
+	if ((names = ga_lookup_ffmpeg_decoders(video_codec_name)) == NULL) {
+		return -1;
+	}
+	if ((codec = ga_avcodec_find_decoder(names, AV_CODEC_ID_NONE)) == NULL) {
+		return -1;
+	}
+
+	if ((*frame = av_frame_alloc()) == NULL) {
+		return -1;
+	}
+	
+	if ((*ctx = avcodec_alloc_context3(codec)) == NULL) {
+		return -2;
+	}
+	if (codec->capabilities & CODEC_CAP_TRUNCATED) {
+		(*ctx)->flags |= CODEC_FLAG_TRUNCATED;
+	}
+	if (sprop != NULL) {
+		if (decode_sprop(*ctx, sprop) != NULL) {
+			int extrasize = (*ctx)->extradata_size;
+			fprintf(stderr, "SPROP = [");
+			for (unsigned char *ptr = (*ctx)->extradata; extrasize > 0; extrasize--) {
+				fprintf(stderr, " %02x", *ptr++);
+			}
+			fprintf(stderr, " ]\n");
+		}
+	}
+	int res = avcodec_open2(*ctx, codec, NULL);
+	if (res != 0) {
+		return -1;
+	}	
+	return 0;
+}
+
+
+void writeErrorsToFile(std::vector<float> *errorList) {
+	std::ofstream file;
+	file.open("avg_encoding_error.txt");
+	for (size_t i = 0; i < errorList->size(); ++i) {
+		file << errorList->at(i) << "\n";
+	}
+	file.close();
+}
+
+int vdecoderInitiatialized = 0;
+AVCodecContext *ctx;
+AVFrame *decoded_frame;
+
 static void *
 vencoder_threadproc(void *arg) {
 	// arg is pointer to source pipename
@@ -337,6 +537,21 @@ vencoder_threadproc(void *arg) {
 			goto video_quit;
 		}
 		if(got_packet) {
+			if (measure_encoding_quality) {
+				if (!vdecoderInitiatialized) {
+					init_vdecoder(&ctx, &decoded_frame, encoder);
+					vdecoderInitiatialized = 1;
+				}
+				int got_picture = 0;
+
+				int len = avcodec_decode_video2(ctx, decoded_frame, &got_picture, &pkt);
+
+				if (got_picture) {
+					check_conversion(0.01, pic_in, decoded_frame);
+				}
+
+			}
+			
 			if(pkt.pts == (int64_t) AV_NOPTS_VALUE) {
 				pkt.pts = pts;
 			}
@@ -367,7 +582,16 @@ vencoder_threadproc(void *arg) {
 			//prsc
 			if (data != NULL) {
 				unsigned char commandId = data->commandId;
+				
 				if (commandId > 0 && commandId <= 200) {
+					if (commandId==199) {
+						measure_encoding_quality = 1;
+					}
+					else if (commandId==198) {
+						measure_encoding_quality = 0;
+						writeErrorsToFile(&avgErrors);
+					}
+
 					AVPacketSideData *sideData = new AVPacketSideData();
 					pkt.side_data = sideData;
 					uint8_t idList[1] = {};
